@@ -1,0 +1,22 @@
+[
+  {
+    "title": "Amazon Gift Card",
+    "desc": "$10 Amazon gift card",
+    "cost": 500
+  },
+  {
+    "title": "Discount Coupon",
+    "desc": "15% off your next purchase",
+    "cost": 300
+  },
+  {
+    "title": "Merchandise",
+    "desc": "Exclusive T-shirt",
+    "cost": 700
+  },
+  {
+    "title": "Coffee Voucher",
+    "desc": "Free coffee at local cafe",
+    "cost": 200
+  }
+]
