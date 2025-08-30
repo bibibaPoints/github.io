@@ -85,27 +85,26 @@
         }
     }
 
-    // Load rewards (now sorts by price ascending)
+    // Load rewards (sorted by price ascending)
     async function loadRewards() {
         const rewardsSnap = await getDocs(rewardsColRef);
-        // map to include id and numeric cost for robust sorting/rendering
         rewards = rewardsSnap.docs.map(d => {
             const data = d.data();
             return {
                 id: d.id,
-                title: data.title ?? data.name ?? data.reward ?? '', // fallback field names if needed
+                title: data.title ?? data.name ?? data.reward ?? '',
                 desc: data.desc ?? data.description ?? '',
                 cost: Number(data.cost ?? 0)
             };
         });
 
-        // sort by cost (lowest -> highest). Change `.sort((a,b)=>b.cost-a.cost)` for high->low
+        // sort by cost (lowest -> highest)
         rewards.sort((a, b) => a.cost - b.cost);
 
         renderRewards();
     }
 
-    // Render rewards safely and attach event listeners (avoids inline onclick string escaping issues)
+    // Render rewards safely and attach event listeners
     function renderRewards() {
         const rewardsGrid = document.getElementById('rewards');
         rewardsGrid.innerHTML = '';
@@ -135,7 +134,6 @@
             btn.className = 'redeem-btn';
             btn.type = 'button';
             btn.textContent = 'Redeem';
-            // attach listener safely
             btn.addEventListener('click', () => window.redeem(reward.cost, reward.title));
 
             card.appendChild(title);
@@ -162,33 +160,65 @@
 
             document.getElementById('points').textContent = points.toLocaleString();
             successMsg.textContent = `You redeemed: ${reward}!`;
-            loadRedemptions();
+            await loadRedemptions(); // reload history (sorted)
         } else {
             successMsg.textContent = `Not enough points for ${reward}.`;
         }
     }
 
-    // Load redemption history
+    // Load redemption history, sort by date (newest first), and show +/- for cost
     async function loadRedemptions() {
         const redemptionsSnap = await getDocs(redemptionsColRef);
+        // convert to array with timestamp for sorting
+        const items = redemptionsSnap.docs.map(d => {
+            const data = d.data();
+            // try to parse date safely
+            const ts = data.date ? new Date(data.date).getTime() : 0;
+            return {
+                id: d.id,
+                reward: data.reward,
+                cost: Number(data.cost || 0),
+                dateRaw: data.date,
+                ts: ts
+            };
+        });
+
+        // sort by timestamp descending (newest first)
+        items.sort((a, b) => b.ts - a.ts);
+
+        // render table
         const tbody = document.querySelector('#redemptions-table tbody');
         tbody.innerHTML = '';
-        redemptionsSnap.forEach(docSnap => {
-            const data = docSnap.data();
+        items.forEach(item => {
             const tr = document.createElement('tr');
+
+            // cost display: if negative -> it's a points addition (show +); else show - (redemption)
+            let sign = '-';
+            let absVal = Math.abs(item.cost);
+            if (item.cost < 0) {
+                sign = '+';
+                absVal = Math.abs(item.cost);
+            }
+
+            const costText = `${sign}${Number(absVal).toLocaleString()}`;
+
+            const dateText = item.dateRaw ? new Date(item.dateRaw).toLocaleString() : '—';
+
             tr.innerHTML = `
-                <td>${data.reward}</td>
-                <td>${Number(data.cost).toLocaleString()}</td>
-                <td>${new Date(data.date).toLocaleString()}</td>
+                <td>${item.reward ?? ''}</td>
+                <td style="text-align:right">${costText}</td>
+                <td>${dateText}</td>
             `;
             tbody.appendChild(tr);
         });
     }
 
     // Initialize
-    loadPoints();
-    loadRewards();
-    loadRedemptions();
+    (async function init() {
+        await loadPoints();
+        await loadRewards();
+        await loadRedemptions();
+    })();
 </script>
 
 </body>
