@@ -9,22 +9,56 @@
 </head>
 <body>
     <div class="container">
+        <!-- Points Display -->
         <div class="points-total">
             Points: <span id="points">...</span>
         </div>
-        <div class="rewards-grid" id="rewards"></div>
+
+        <!-- Main Content Wrapper -->
+        <div class="content-wrapper">
+            <!-- Rewards Section -->
+            <div class="rewards-section">
+                <h2>Available Rewards</h2>
+                <div class="rewards-grid" id="rewards"></div>
+            </div>
+
+            <!-- Redemption History Section -->
+            <div class="redemptions-section">
+                <h2>Redemption History</h2>
+                <table id="redemptions-table">
+                    <thead>
+                        <tr>
+                            <th>Reward</th>
+                            <th>Cost</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Filled dynamically by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Success Message -->
         <div id="success" class="success-msg"></div>
     </div>
 
     <script>
         let points = 0;
         let rewards = [];
+        let redemptions = [];
 
-        // Load points from local JSON
+        // Load points from local JSON or localStorage
         fetch('src/json/points.json')
             .then(res => res.json())
             .then(data => {
-                points = data.points;
+                if (!localStorage.getItem('points')) {
+                    points = data.points;
+                    localStorage.setItem('points', points);
+                } else {
+                    points = parseInt(localStorage.getItem('points'), 10);
+                }
                 document.getElementById('points').textContent = points;
             });
 
@@ -35,6 +69,12 @@
                 rewards = data;
                 renderRewards();
             });
+
+        // Load redemption history from localStorage
+        if (localStorage.getItem('redemptions')) {
+            redemptions = JSON.parse(localStorage.getItem('redemptions'));
+        }
+        renderRedemptions();
 
         function renderRewards() {
             const rewardsGrid = document.getElementById('rewards');
@@ -57,18 +97,36 @@
             if (points >= cost) {
                 points -= cost;
                 document.getElementById('points').textContent = points;
-                successMsg.textContent = `You redeemed: ${reward}!`;
-                // Persist locally using localStorage
                 localStorage.setItem('points', points);
+
+                const newRedemption = {
+                    reward: reward,
+                    cost: cost,
+                    date: new Date().toLocaleString()
+                };
+
+                redemptions.push(newRedemption);
+                localStorage.setItem('redemptions', JSON.stringify(redemptions));
+
+                renderRedemptions();
+                successMsg.textContent = `You redeemed: ${reward}!`;
             } else {
                 successMsg.textContent = `Not enough points for ${reward}.`;
             }
         }
 
-        // Load from localStorage if available
-        if (localStorage.getItem('points')) {
-            points = parseInt(localStorage.getItem('points'), 10);
-            document.getElementById('points').textContent = points;
+        function renderRedemptions() {
+            const tbody = document.querySelector('#redemptions-table tbody');
+            tbody.innerHTML = '';
+            redemptions.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.reward}</td>
+                    <td>${item.cost}</td>
+                    <td>${item.date}</td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
     </script>
 </body>
