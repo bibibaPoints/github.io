@@ -42,8 +42,6 @@
     .msg { margin-top: 12px; font-weight: 600; }
     h2 { margin-top: 8px; font-size: 18px; }
     .section { margin-bottom: 26px; }
-    .row { display:flex; gap:10px; }
-    .small { width:100px; }
     .back-btn {
       background: #6c757d;
       margin-top: 14px;
@@ -58,7 +56,6 @@
     <input type="password" id="admin-pass" placeholder="Enter password">
     <button onclick="login()">Login</button>
     <div class="msg" id="login-msg"></div>
-    <!-- optional quick back -->
     <button class="back-btn" style="margin-top:12px;" onclick="window.location.href='index.html'">⬅ Back to Home</button>
   </div>
 
@@ -96,7 +93,8 @@
       getDoc,
       setDoc,
       addDoc,
-      updateDoc
+      updateDoc,
+      getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // ---- config (yours already) ----
@@ -116,7 +114,7 @@
     // refs
     const pointsDocRef = doc(db, "settings", "points");
     const redemptionsColRef = collection(db, "redemptions"); // used for logging point adds
-    const rewardCounterRef = doc(db, "reward", "counter");
+    const rewardsColRef = collection(db, "rewards"); // THE collection to match index.html
 
     // -----------------------
     // LOGIN (checks admin/passwords.adminPassword)
@@ -158,8 +156,8 @@
     };
 
     // -----------------------
-    // Add redemption -> writes to collection "reward" with doc named reward{n}
-    // Uses reward/counter.count to keep track of the last id.
+    // Add redemption -> writes to collection "rewards" with doc named reward{n}
+    // Looks at all items in 'rewards' collection, adds 1, and creates the new doc.
     // -----------------------
     window.addRedemption = async function() {
       const title = document.getElementById("reward").value.trim();
@@ -175,26 +173,18 @@
       }
 
       try {
-        // Read counter
-        const counterSnap = await getDoc(rewardCounterRef);
-        let total = 0;
-        if (counterSnap.exists()) {
-          total = Number(counterSnap.data().count) || 0;
-        }
-
+        // Count existing docs in 'rewards' collection
+        const snapshot = await getDocs(rewardsColRef);
+        const total = snapshot.size || 0; // number of docs currently
         const newId = total + 1;
         const newDocId = `reward${newId}`;
-        const newRewardRef = doc(db, "reward", newDocId);
 
-        // write the reward doc
-        await setDoc(newRewardRef, {
+        // create the new reward doc in collection "rewards"
+        await setDoc(doc(db, "rewards", newDocId), {
           title: title,
           desc: desc,
           cost: cost
         });
-
-        // update counter (overwrite with new count)
-        await setDoc(rewardCounterRef, { count: newId });
 
         msg.textContent = `✅ Added reward: ${title} (${cost} pts) [${newDocId}]`;
         msg.style.color = "green";
@@ -205,7 +195,7 @@
         document.getElementById("cost").value = "";
       } catch (err) {
         console.error("addRedemption error:", err);
-        msg.textContent = "Error adding reward. Check console.";
+        msg.textContent = "Error adding reward. See console.";
         msg.style.color = "red";
       }
     };
