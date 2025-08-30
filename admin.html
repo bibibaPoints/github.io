@@ -7,12 +7,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', sans-serif; padding: 20px; background: #f5f5f5; }
-    .login, .admin-panel { max-width: 400px; margin: auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+    .login, .admin-panel { 
+      max-width: 500px; margin: auto; padding: 20px; 
+      background: white; border-radius: 10px; 
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2); 
+    }
     .admin-panel { display: none; }
-    input, button { width: 100%; margin-top: 10px; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
-    button { background: #007bff; color: white; cursor: pointer; }
+    input, textarea, button { 
+      width: 100%; margin-top: 10px; padding: 10px; 
+      border-radius: 6px; border: 1px solid #ccc; 
+      font-size: 14px; 
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    button { background: #007bff; color: white; cursor: pointer; font-weight: bold; }
     button:hover { background: #0056b3; }
     .msg { margin-top: 15px; font-weight: bold; }
+    h2 { margin-top: 20px; }
+    .section { margin-bottom: 30px; }
   </style>
 </head>
 <body>
@@ -26,17 +37,29 @@
 
   <!-- Admin Panel -->
   <div class="admin-panel" id="admin-panel">
-    <h2>Add Redemption (Manual)</h2>
-    <input type="text" id="reward" placeholder="Reward name">
-    <input type="number" id="cost" placeholder="Cost in points">
-    <button onclick="addRedemption()">Add Redemption</button>
-    <div class="msg" id="admin-msg"></div>
+    <!-- Add Redemption -->
+    <div class="section">
+      <h2>Add Redemption (Manual)</h2>
+      <input type="text" id="reward" placeholder="Reward name">
+      <textarea id="desc" placeholder="Reward description"></textarea>
+      <input type="number" id="cost" placeholder="Cost in points">
+      <button onclick="addRedemption()">Add Redemption</button>
+      <div class="msg" id="admin-msg"></div>
+    </div>
+
+    <!-- Add Points -->
+    <div class="section">
+      <h2>Add Points</h2>
+      <input type="number" id="pointsToAdd" placeholder="Points to add">
+      <button onclick="addPoints()">Add Points</button>
+      <div class="msg" id="points-msg"></div>
+    </div>
   </div>
 
   <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     // Firebase config
     const firebaseConfig = {
@@ -53,8 +76,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const redemptionsColRef = collection(db, "redemptions");
+    const pointsDocRef = doc(db, "settings", "points");
 
-    // Admin password (⚠️ not secure – just for quick prototype)
+    // Admin password (⚠️ for prototype only)
     const ADMIN_PASSWORD = "supersecret123"; 
 
     // Login
@@ -73,10 +97,11 @@
     // Add redemption manually
     window.addRedemption = async function() {
       const reward = document.getElementById("reward").value;
+      const desc = document.getElementById("desc").value;
       const cost = Number(document.getElementById("cost").value);
       const msg = document.getElementById("admin-msg");
 
-      if (!reward || isNaN(cost)) {
+      if (!reward || !desc || isNaN(cost)) {
         msg.textContent = "Fill out all fields.";
         msg.style.color = "red";
         return;
@@ -84,15 +109,48 @@
 
       await addDoc(redemptionsColRef, {
         reward: reward,
+        desc: desc,
         cost: cost,
         date: new Date().toISOString(),
-        addedBy: "admin" // mark that it was added manually
+        addedBy: "admin"
       });
 
       msg.textContent = `Added redemption: ${reward} (${cost} pts)`;
       msg.style.color = "green";
       document.getElementById("reward").value = "";
+      document.getElementById("desc").value = "";
       document.getElementById("cost").value = "";
+    }
+
+    // Add points manually
+    window.addPoints = async function() {
+      const pointsInput = Number(document.getElementById("pointsToAdd").value);
+      const msg = document.getElementById("points-msg");
+
+      if (isNaN(pointsInput) || pointsInput <= 0) {
+        msg.textContent = "Enter a valid number of points.";
+        msg.style.color = "red";
+        return;
+      }
+
+      const snap = await getDoc(pointsDocRef);
+      let currentPoints = snap.exists() ? snap.data().value : 0;
+      const newPoints = currentPoints + pointsInput;
+
+      await updateDoc(pointsDocRef, { value: newPoints });
+
+      // Log this in the redemptions collection as an "admin points add"
+      await addDoc(redemptionsColRef, {
+        reward: "Points Added",
+        desc: `Admin added ${pointsInput} points.`,
+        cost: -pointsInput, // negative so you can distinguish in logs
+        date: new Date().toISOString(),
+        addedBy: "admin"
+      });
+
+      msg.textContent = `Added ${pointsInput} points. Total is now ${newPoints}.`;
+      msg.style.color = "green";
+      document.getElementById("pointsToAdd").value = "";
     }
   </script>
 </body>
