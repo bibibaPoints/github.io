@@ -70,4 +70,39 @@ body {
     color: #2d7cf7;
     font-weight: 600;
     margin-top: 24px;
+
+}
+
+
+.content-wrapper {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.rewards-section {
+    flex: 2;
+}
+
+.redemptions-section {
+    flex: 1;
+    background: #f8f8f8;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+#redemptions-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#redemptions-table th, #redemptions-table td {
+    border-bottom: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#redemptions-table th {
+    background: #eee;
 }
