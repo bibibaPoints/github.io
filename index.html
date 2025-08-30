@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Point Redemption</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="src/css/main.css">
+</head>
+<body>
+    <div class="container">
+        <div class="points-total">
+            Points: <span id="points">...</span>
+        </div>
+        <div class="rewards-grid" id="rewards"></div>
+        <div id="success" class="success-msg"></div>
+    </div>
+
+    <script>
+        let points = 0;
+        let rewards = [];
+
+        // Load points from local JSON
+        fetch('src/json/points.json')
+            .then(res => res.json())
+            .then(data => {
+                points = data.points;
+                document.getElementById('points').textContent = points;
+            });
+
+        // Load rewards from local JSON
+        fetch('src/json/rewards.json')
+            .then(res => res.json())
+            .then(data => {
+                rewards = data;
+                renderRewards();
+            });
+
+        function renderRewards() {
+            const rewardsGrid = document.getElementById('rewards');
+            rewardsGrid.innerHTML = '';
+            rewards.forEach(reward => {
+                const card = document.createElement('div');
+                card.className = 'reward-card';
+                card.innerHTML = `
+                    <div class="reward-title">${reward.title}</div>
+                    <div class="reward-desc">${reward.desc}</div>
+                    <div class="reward-points">Cost: ${reward.cost} points</div>
+                    <button class="redeem-btn" onclick="redeem(${reward.cost}, '${reward.title}')">Redeem</button>
+                `;
+                rewardsGrid.appendChild(card);
+            });
+        }
+
+        function redeem(cost, reward) {
+            const successMsg = document.getElementById('success');
+            if (points >= cost) {
+                points -= cost;
+                document.getElementById('points').textContent = points;
+                successMsg.textContent = `You redeemed: ${reward}!`;
+                // Persist locally using localStorage
+                localStorage.setItem('points', points);
+            } else {
+                successMsg.textContent = `Not enough points for ${reward}.`;
+            }
+        }
+
+        // Load from localStorage if available
+        if (localStorage.getItem('points')) {
+            points = parseInt(localStorage.getItem('points'), 10);
+            document.getElementById('points').textContent = points;
+        }
+    </script>
+</body>
+</html>
