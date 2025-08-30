@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin - Add Redemption</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; padding: 20px; background: #f5f5f5; }
+    .login, .admin-panel { max-width: 400px; margin: auto; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+    .admin-panel { display: none; }
+    input, button { width: 100%; margin-top: 10px; padding: 10px; border-radius: 5px; border: 1px solid #ccc; }
+    button { background: #007bff; color: white; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .msg { margin-top: 15px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <!-- Login -->
+  <div class="login">
+    <h2>Admin Login</h2>
+    <input type="password" id="admin-pass" placeholder="Enter password">
+    <button onclick="login()">Login</button>
+    <div class="msg" id="login-msg"></div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="admin-panel" id="admin-panel">
+    <h2>Add Redemption (Manual)</h2>
+    <input type="text" id="reward" placeholder="Reward name">
+    <input type="number" id="cost" placeholder="Cost in points">
+    <button onclick="addRedemption()">Add Redemption</button>
+    <div class="msg" id="admin-msg"></div>
+  </div>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyA1tsf2jHSpUfLb3PsFR58PJXDVhsGgHWA",
+      authDomain: "bibibapoints.firebaseapp.com",
+      projectId: "bibibapoints",
+      storageBucket: "bibibapoints.firebasestorage.app",
+      messagingSenderId: "942015302901",
+      appId: "1:942015302901:web:f2118d13231e5bf98cc9bc",
+      measurementId: "G-BG3FKHX8BF"
+    };
+
+    // Init Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const redemptionsColRef = collection(db, "redemptions");
+
+    // Admin password (⚠️ not secure – just for quick prototype)
+    const ADMIN_PASSWORD = "supersecret123"; 
+
+    // Login
+    window.login = function() {
+      const input = document.getElementById("admin-pass").value;
+      const msg = document.getElementById("login-msg");
+      if (input === ADMIN_PASSWORD) {
+        document.querySelector(".login").style.display = "none";
+        document.getElementById("admin-panel").style.display = "block";
+      } else {
+        msg.textContent = "Wrong password.";
+        msg.style.color = "red";
+      }
+    }
+
+    // Add redemption manually
+    window.addRedemption = async function() {
+      const reward = document.getElementById("reward").value;
+      const cost = Number(document.getElementById("cost").value);
+      const msg = document.getElementById("admin-msg");
+
+      if (!reward || isNaN(cost)) {
+        msg.textContent = "Fill out all fields.";
+        msg.style.color = "red";
+        return;
+      }
+
+      await addDoc(redemptionsColRef, {
+        reward: reward,
+        cost: cost,
+        date: new Date().toISOString(),
+        addedBy: "admin" // mark that it was added manually
+      });
+
+      msg.textContent = `Added redemption: ${reward} (${cost} pts)`;
+      msg.style.color = "green";
+      document.getElementById("reward").value = "";
+      document.getElementById("cost").value = "";
+    }
+  </script>
+</body>
+</html>
