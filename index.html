@@ -44,38 +44,52 @@
         <div id="success" class="success-msg"></div>
     </div>
 
-    <script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules from CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, updateDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+        // Your Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1tsf2jHSpUfLb3PsFR58PJXDVhsGgHWA",
+            authDomain: "bibibapoints.firebaseapp.com",
+            projectId: "bibibapoints",
+            storageBucket: "bibibapoints.firebasestorage.app",
+            messagingSenderId: "942015302901",
+            appId: "1:942015302901:web:f2118d13231e5bf98cc9bc",
+            measurementId: "G-BG3FKHX8BF"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Firestore references
+        const pointsDocRef = doc(db, "settings", "points");
+        const rewardsColRef = collection(db, "rewards");
+        const redemptionsColRef = collection(db, "redemptions");
+
         let points = 0;
         let rewards = [];
-        let redemptions = [];
 
-        // Load points from local JSON or localStorage
-        fetch('src/json/points.json')
-            .then(res => res.json())
-            .then(data => {
-                if (!localStorage.getItem('points')) {
-                    points = data.points;
-                    localStorage.setItem('points', points);
-                } else {
-                    points = parseInt(localStorage.getItem('points'), 10);
-                }
+        // Load points
+        async function loadPoints() {
+            const pointsSnap = await getDoc(pointsDocRef);
+            if (pointsSnap.exists()) {
+                points = pointsSnap.data().value;
                 document.getElementById('points').textContent = points;
-            });
-
-        // Load rewards from local JSON
-        fetch('src/json/rewards.json')
-            .then(res => res.json())
-            .then(data => {
-                rewards = data;
-                renderRewards();
-            });
-
-        // Load redemption history from localStorage
-        if (localStorage.getItem('redemptions')) {
-            redemptions = JSON.parse(localStorage.getItem('redemptions'));
+            }
         }
-        renderRedemptions();
 
+        // Load rewards
+        async function loadRewards() {
+            const rewardsSnap = await getDocs(rewardsColRef);
+            rewards = rewardsSnap.docs.map(doc => doc.data());
+            renderRewards();
+        }
+
+        // Render rewards
         function renderRewards() {
             const rewardsGrid = document.getElementById('rewards');
             rewardsGrid.innerHTML = '';
@@ -92,42 +106,48 @@
             });
         }
 
-        function redeem(cost, reward) {
+        // Redeem a reward
+        window.redeem = async function(cost, reward) {
             const successMsg = document.getElementById('success');
             if (points >= cost) {
                 points -= cost;
-                document.getElementById('points').textContent = points;
-                localStorage.setItem('points', points);
+                await updateDoc(pointsDocRef, { value: points });
 
-                const newRedemption = {
+                await addDoc(redemptionsColRef, {
                     reward: reward,
                     cost: cost,
-                    date: new Date().toLocaleString()
-                };
+                    date: new Date().toISOString()
+                });
 
-                redemptions.push(newRedemption);
-                localStorage.setItem('redemptions', JSON.stringify(redemptions));
-
-                renderRedemptions();
+                document.getElementById('points').textContent = points;
                 successMsg.textContent = `You redeemed: ${reward}!`;
+                loadRedemptions();
             } else {
                 successMsg.textContent = `Not enough points for ${reward}.`;
             }
         }
 
-        function renderRedemptions() {
+        // Load redemption history
+        async function loadRedemptions() {
+            const redemptionsSnap = await getDocs(redemptionsColRef);
             const tbody = document.querySelector('#redemptions-table tbody');
             tbody.innerHTML = '';
-            redemptions.forEach(item => {
+            redemptionsSnap.forEach(docSnap => {
+                const data = docSnap.data();
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${item.reward}</td>
-                    <td>${item.cost}</td>
-                    <td>${item.date}</td>
+                    <td>${data.reward}</td>
+                    <td>${data.cost}</td>
+                    <td>${new Date(data.date).toLocaleString()}</td>
                 `;
                 tbody.appendChild(tr);
             });
         }
+
+        // Initialize
+        loadPoints();
+        loadRewards();
+        loadRedemptions();
     </script>
 </body>
 </html>
