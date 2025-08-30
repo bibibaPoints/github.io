@@ -85,26 +85,64 @@
         }
     }
 
-    // Load rewards
+    // Load rewards (now sorts by price ascending)
     async function loadRewards() {
         const rewardsSnap = await getDocs(rewardsColRef);
-        rewards = rewardsSnap.docs.map(doc => doc.data());
+        // map to include id and numeric cost for robust sorting/rendering
+        rewards = rewardsSnap.docs.map(d => {
+            const data = d.data();
+            return {
+                id: d.id,
+                title: data.title ?? data.name ?? data.reward ?? '', // fallback field names if needed
+                desc: data.desc ?? data.description ?? '',
+                cost: Number(data.cost ?? 0)
+            };
+        });
+
+        // sort by cost (lowest -> highest). Change `.sort((a,b)=>b.cost-a.cost)` for high->low
+        rewards.sort((a, b) => a.cost - b.cost);
+
         renderRewards();
     }
 
-    // Render rewards
+    // Render rewards safely and attach event listeners (avoids inline onclick string escaping issues)
     function renderRewards() {
         const rewardsGrid = document.getElementById('rewards');
         rewardsGrid.innerHTML = '';
+
+        if (rewards.length === 0) {
+            rewardsGrid.innerHTML = '<div class="no-rewards">No rewards available.</div>';
+            return;
+        }
+
         rewards.forEach(reward => {
             const card = document.createElement('div');
             card.className = 'reward-card';
-            card.innerHTML = `
-                <div class="reward-title">${reward.title}</div>
-                <div class="reward-desc">${reward.desc}</div>
-                <div class="reward-points">Cost: ${Number(reward.cost).toLocaleString()} points</div>
-                <button class="redeem-btn" onclick="redeem(${reward.cost}, '${reward.title}')">Redeem</button>
-            `;
+
+            const title = document.createElement('div');
+            title.className = 'reward-title';
+            title.textContent = reward.title;
+
+            const desc = document.createElement('div');
+            desc.className = 'reward-desc';
+            desc.textContent = reward.desc;
+
+            const pointsDiv = document.createElement('div');
+            pointsDiv.className = 'reward-points';
+            pointsDiv.textContent = `Cost: ${Number(reward.cost).toLocaleString()} points`;
+
+            const btn = document.createElement('button');
+            btn.className = 'redeem-btn';
+            btn.type = 'button';
+            btn.textContent = 'Redeem';
+            // attach listener safely
+            btn.addEventListener('click', () => window.redeem(reward.cost, reward.title));
+
+            card.appendChild(title);
+            card.appendChild(desc);
+            card.appendChild(pointsDiv);
+            card.appendChild(btn);
+
             rewardsGrid.appendChild(card);
         });
     }
