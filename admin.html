@@ -6,27 +6,57 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Inter', sans-serif;
       padding: 20px;
       background: #f5f5f5;
     }
     .login, .admin-panel { 
-      max-width: 500px; margin: auto; padding: 20px; background: white; 
-      border-radius: 10px; box-shadow: 0 3px 8px rgba(0,0,0,0.2); 
+      max-width: 500px; 
+      margin: auto; 
+      padding: 20px; 
+      background: white; 
+      border-radius: 10px; 
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2); 
     }
     .admin-panel { display: none; }
+
     input, textarea, button { 
-      width: 100%; margin-top: 10px; padding: 12px 14px; 
-      border-radius: 6px; border: 1px solid #ccc; font-size: 15px; 
+      width: 100%; 
+      margin-top: 10px; 
+      padding: 12px 14px; 
+      border-radius: 6px; 
+      border: 1px solid #ccc; 
+      font-size: 15px; 
     }
-    textarea { resize: vertical; min-height: 90px; }
-    button { background: #007bff; color: white; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+    textarea { 
+      resize: vertical; 
+      min-height: 90px; 
+    }
+    button { 
+      background: #007bff; 
+      color: white; 
+      cursor: pointer; 
+      font-weight: bold; 
+      transition: background 0.2s;
+    }
     button:hover { background: #0056b3; }
     .msg { margin-top: 15px; font-weight: bold; }
     h2 { margin-top: 20px; font-size: 18px; }
     .section { margin-bottom: 30px; }
+
+    /* Special style for back button */
+    .back-btn {
+      background: #6c757d;
+      margin-top: 20px;
+    }
+    .back-btn:hover {
+      background: #5a6268;
+    }
   </style>
 </head>
 <body>
@@ -40,6 +70,7 @@
 
   <!-- Admin Panel -->
   <div class="admin-panel" id="admin-panel">
+    <!-- Add Redemption -->
     <div class="section">
       <h2>Add Redemption (Manual)</h2>
       <input type="text" id="reward" placeholder="Reward name">
@@ -49,12 +80,16 @@
       <div class="msg" id="admin-msg"></div>
     </div>
 
+    <!-- Add Points -->
     <div class="section">
       <h2>Add Points</h2>
       <input type="number" id="pointsToAdd" placeholder="Points to add">
       <button onclick="addPoints()">Add Points</button>
       <div class="msg" id="points-msg"></div>
     </div>
+
+    <!-- Back to Home -->
+    <button class="back-btn" onclick="window.location.href='index.html'">⬅ Back to Home</button>
   </div>
 
   <!-- Firebase -->
@@ -62,7 +97,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyA1tsf2jHSpUfLb3PsFR58PJXDVhsGgHWA",
       authDomain: "bibibapoints.firebaseapp.com",
@@ -73,43 +107,25 @@
       measurementId: "G-BG3FKHX8BF"
     };
 
-    // Init Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const redemptionsColRef = collection(db, "redemptions");
     const pointsDocRef = doc(db, "settings", "points");
 
-    // 🔑 Firestore Admin Password Reference
-    const adminPassRef = doc(db, "admin", "passwords");
+    const ADMIN_PASSWORD = "supersecret123"; 
 
-    // Login
-    window.login = async function() {
+    window.login = function() {
       const input = document.getElementById("admin-pass").value;
       const msg = document.getElementById("login-msg");
-
-      try {
-        const snap = await getDoc(adminPassRef);
-        if (snap.exists()) {
-          const correctPass = snap.data().adminPassword;
-          if (input === correctPass) {
-            document.querySelector(".login").style.display = "none";
-            document.getElementById("admin-panel").style.display = "block";
-          } else {
-            msg.textContent = "Wrong password.";
-            msg.style.color = "red";
-          }
-        } else {
-          msg.textContent = "Password not set in database.";
-          msg.style.color = "red";
-        }
-      } catch (err) {
-        console.error("Error fetching admin password:", err);
-        msg.textContent = "Error connecting to database.";
+      if (input === ADMIN_PASSWORD) {
+        document.querySelector(".login").style.display = "none";
+        document.getElementById("admin-panel").style.display = "block";
+      } else {
+        msg.textContent = "Wrong password.";
         msg.style.color = "red";
       }
     }
 
-    // Add redemption manually
     window.addRedemption = async function() {
       const reward = document.getElementById("reward").value;
       const desc = document.getElementById("desc").value;
@@ -137,7 +153,6 @@
       document.getElementById("cost").value = "";
     }
 
-    // Add points manually
     window.addPoints = async function() {
       const pointsInput = Number(document.getElementById("pointsToAdd").value);
       const msg = document.getElementById("points-msg");
