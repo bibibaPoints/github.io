@@ -6,66 +6,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after {
-      box-sizing: border-box;
-    }
-
+    *, *::before, *::after { box-sizing: border-box; }
     body {
       font-family: 'Inter', sans-serif;
       padding: 20px;
       background: #f5f5f5;
     }
-    .login, .admin-panel { 
-      max-width: 500px; 
-      margin: auto; 
-      padding: 20px; 
-      background: white; 
-      border-radius: 10px; 
-      box-shadow: 0 3px 8px rgba(0,0,0,0.2); 
+    .login, .admin-panel {
+      max-width: 520px;
+      margin: auto;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.12);
     }
     .admin-panel { display: none; }
-
-    input, textarea, button { 
-      width: 100%; 
-      margin-top: 10px; 
-      padding: 12px 14px; 
-      border-radius: 6px; 
-      border: 1px solid #ccc; 
-      font-size: 15px; 
+    input, textarea, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+      box-sizing: border-box;
     }
-    textarea { 
-      resize: vertical; 
-      min-height: 90px; 
-    }
-    button { 
-      background: #007bff; 
-      color: white; 
-      cursor: pointer; 
-      font-weight: bold; 
-      transition: background 0.2s;
+    textarea { resize: vertical; min-height: 90px; }
+    button {
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.18s;
     }
     button:hover { background: #0056b3; }
-    .msg { margin-top: 15px; font-weight: bold; }
-    h2 { margin-top: 20px; font-size: 18px; }
-    .section { margin-bottom: 30px; }
-
-    /* Special style for back button */
+    .msg { margin-top: 12px; font-weight: 600; }
+    h2 { margin-top: 8px; font-size: 18px; }
+    .section { margin-bottom: 26px; }
+    .row { display:flex; gap:10px; }
+    .small { width:100px; }
     .back-btn {
       background: #6c757d;
-      margin-top: 20px;
+      margin-top: 14px;
     }
-    .back-btn:hover {
-      background: #5a6268;
-    }
+    .back-btn:hover { background: #5a6268; }
   </style>
 </head>
 <body>
   <!-- Login -->
-  <div class="login">
+  <div class="login" id="login-box">
     <h2>Admin Login</h2>
     <input type="password" id="admin-pass" placeholder="Enter password">
     <button onclick="login()">Login</button>
     <div class="msg" id="login-msg"></div>
+    <!-- optional quick back -->
+    <button class="back-btn" style="margin-top:12px;" onclick="window.location.href='index.html'">⬅ Back to Home</button>
   </div>
 
   <!-- Admin Panel -->
@@ -73,9 +67,9 @@
     <!-- Add Redemption -->
     <div class="section">
       <h2>Add Redemption (Manual)</h2>
-      <input type="text" id="reward" placeholder="Reward name">
-      <textarea id="desc" placeholder="Reward description"></textarea>
-      <input type="number" id="cost" placeholder="Cost in points">
+      <input type="text" id="reward" placeholder="Reward title (e.g. Free Coffee)">
+      <textarea id="desc" placeholder="Reward description (short)"></textarea>
+      <input type="number" id="cost" placeholder="Cost in points (number)">
       <button onclick="addRedemption()">Add Redemption</button>
       <div class="msg" id="admin-msg"></div>
     </div>
@@ -83,7 +77,7 @@
     <!-- Add Points -->
     <div class="section">
       <h2>Add Points</h2>
-      <input type="number" id="pointsToAdd" placeholder="Points to add">
+      <input type="number" id="pointsToAdd" placeholder="Points to add (positive number)">
       <button onclick="addPoints()">Add Points</button>
       <div class="msg" id="points-msg"></div>
     </div>
@@ -92,11 +86,20 @@
     <button class="back-btn" onclick="window.location.href='index.html'">⬅ Back to Home</button>
   </div>
 
-  <!-- Firebase -->
+  <!-- Firebase + script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      getDoc,
+      setDoc,
+      addDoc,
+      updateDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+    // ---- config (yours already) ----
     const firebaseConfig = {
       apiKey: "AIzaSyA1tsf2jHSpUfLb3PsFR58PJXDVhsGgHWA",
       authDomain: "bibibapoints.firebaseapp.com",
@@ -109,78 +112,145 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const redemptionsColRef = collection(db, "redemptions");
+
+    // refs
     const pointsDocRef = doc(db, "settings", "points");
+    const redemptionsColRef = collection(db, "redemptions"); // used for logging point adds
+    const rewardCounterRef = doc(db, "reward", "counter");
 
-    const ADMIN_PASSWORD = "supersecret123"; 
-
-    window.login = function() {
-      const input = document.getElementById("admin-pass").value;
+    // -----------------------
+    // LOGIN (checks admin/passwords.adminPassword)
+    // -----------------------
+    window.login = async function() {
+      const input = document.getElementById("admin-pass").value.trim();
       const msg = document.getElementById("login-msg");
-      if (input === ADMIN_PASSWORD) {
-        document.querySelector(".login").style.display = "none";
-        document.getElementById("admin-panel").style.display = "block";
-      } else {
-        msg.textContent = "Wrong password.";
-        msg.style.color = "red";
-      }
-    }
-
-    window.addRedemption = async function() {
-      const reward = document.getElementById("reward").value;
-      const desc = document.getElementById("desc").value;
-      const cost = Number(document.getElementById("cost").value);
-      const msg = document.getElementById("admin-msg");
-
-      if (!reward || !desc || isNaN(cost)) {
-        msg.textContent = "Fill out all fields.";
+      msg.textContent = "";
+      if (!input) {
+        msg.textContent = "Enter password.";
         msg.style.color = "red";
         return;
       }
 
-      await addDoc(redemptionsColRef, {
-        reward,
-        desc,
-        cost,
-        date: new Date().toISOString(),
-        addedBy: "admin"
-      });
+      try {
+        const passSnap = await getDoc(doc(db, "admin", "passwords"));
+        if (!passSnap.exists()) {
+          msg.textContent = "Password not set in database.";
+          msg.style.color = "red";
+          return;
+        }
+        const correctPass = passSnap.data().adminPassword;
+        if (input === correctPass) {
+          // show admin panel
+          document.getElementById("login-box").style.display = "none";
+          document.getElementById("admin-panel").style.display = "block";
+          // clear password box
+          document.getElementById("admin-pass").value = "";
+          msg.textContent = "";
+        } else {
+          msg.textContent = "Wrong password.";
+          msg.style.color = "red";
+        }
+      } catch (err) {
+        console.error("login error:", err);
+        msg.textContent = "Error checking password.";
+        msg.style.color = "red";
+      }
+    };
 
-      msg.textContent = `Added redemption: ${reward} (${cost} pts)`;
-      msg.style.color = "green";
-      document.getElementById("reward").value = "";
-      document.getElementById("desc").value = "";
-      document.getElementById("cost").value = "";
-    }
+    // -----------------------
+    // Add redemption -> writes to collection "reward" with doc named reward{n}
+    // Uses reward/counter.count to keep track of the last id.
+    // -----------------------
+    window.addRedemption = async function() {
+      const title = document.getElementById("reward").value.trim();
+      const desc = document.getElementById("desc").value.trim();
+      const cost = Number(document.getElementById("cost").value);
+      const msg = document.getElementById("admin-msg");
+      msg.textContent = "";
 
+      if (!title || !desc || isNaN(cost)) {
+        msg.textContent = "Fill out all fields (title, description, cost).";
+        msg.style.color = "red";
+        return;
+      }
+
+      try {
+        // Read counter
+        const counterSnap = await getDoc(rewardCounterRef);
+        let total = 0;
+        if (counterSnap.exists()) {
+          total = Number(counterSnap.data().count) || 0;
+        }
+
+        const newId = total + 1;
+        const newDocId = `reward${newId}`;
+        const newRewardRef = doc(db, "reward", newDocId);
+
+        // write the reward doc
+        await setDoc(newRewardRef, {
+          title: title,
+          desc: desc,
+          cost: cost
+        });
+
+        // update counter (overwrite with new count)
+        await setDoc(rewardCounterRef, { count: newId });
+
+        msg.textContent = `✅ Added reward: ${title} (${cost} pts) [${newDocId}]`;
+        msg.style.color = "green";
+
+        // clear fields
+        document.getElementById("reward").value = "";
+        document.getElementById("desc").value = "";
+        document.getElementById("cost").value = "";
+      } catch (err) {
+        console.error("addRedemption error:", err);
+        msg.textContent = "Error adding reward. Check console.";
+        msg.style.color = "red";
+      }
+    };
+
+    // -----------------------
+    // Add points -> updates settings/points and logs in redemptions
+    // -----------------------
     window.addPoints = async function() {
       const pointsInput = Number(document.getElementById("pointsToAdd").value);
       const msg = document.getElementById("points-msg");
+      msg.textContent = "";
 
       if (isNaN(pointsInput) || pointsInput <= 0) {
-        msg.textContent = "Enter a valid number of points.";
+        msg.textContent = "Enter a valid positive number of points.";
         msg.style.color = "red";
         return;
       }
 
-      const snap = await getDoc(pointsDocRef);
-      let currentPoints = snap.exists() ? snap.data().value : 0;
-      const newPoints = currentPoints + pointsInput;
+      try {
+        // get current points
+        const snap = await getDoc(pointsDocRef);
+        let currentPoints = snap.exists() ? Number(snap.data().value || 0) : 0;
+        const newPoints = currentPoints + pointsInput;
 
-      await updateDoc(pointsDocRef, { value: newPoints });
+        // update settings/points (create if not exist)
+        await setDoc(pointsDocRef, { value: newPoints });
 
-      await addDoc(redemptionsColRef, {
-        reward: "Points Added",
-        desc: `Admin added ${pointsInput} points.`,
-        cost: -pointsInput,
-        date: new Date().toISOString(),
-        addedBy: "admin"
-      });
+        // log into redemptions (so history table shows admin adds)
+        await addDoc(redemptionsColRef, {
+          reward: "Points Added",
+          desc: `Admin added ${pointsInput} points.`,
+          cost: -pointsInput,
+          date: new Date().toISOString(),
+          addedBy: "admin"
+        });
 
-      msg.textContent = `Added ${pointsInput} points. Total is now ${newPoints}.`;
-      msg.style.color = "green";
-      document.getElementById("pointsToAdd").value = "";
-    }
+        msg.textContent = `✅ Added ${pointsInput} points. Total is now ${newPoints}.`;
+        msg.style.color = "green";
+        document.getElementById("pointsToAdd").value = "";
+      } catch (err) {
+        console.error("addPoints error:", err);
+        msg.textContent = "Error adding points. Check console.";
+        msg.style.color = "red";
+      }
+    };
   </script>
 </body>
 </html>
