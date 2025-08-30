@@ -178,3 +178,22 @@ body {
         flex-direction: column;
     }
 }
+.admin-link {
+    margin-top: 10px;
+    text-align: right;
+}
+
+.admin-link a {
+    background: #007bff;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.admin-link a:hover {
+    background: #0056b3;
+}
+
