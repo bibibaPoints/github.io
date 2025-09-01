@@ -101,16 +101,21 @@
         }
     }
 
-    // Real-time listener for points changes
+    // Real-time listener for points changes (skip first load)
+    let pointsFirstLoad = true;
     onSnapshot(pointsDocRef, (doc) => {
         if (doc.exists()) {
             const newPoints = doc.data().value;
             if (newPoints !== points) {
                 points = newPoints;
                 document.getElementById('points').textContent = points.toLocaleString();
-                notify("Points Updated!", `You now have ${points} points.`);
+
+                if (!pointsFirstLoad) {
+                    notify("Points Updated!", `You now have ${points} points.`);
+                }
             }
         }
+        pointsFirstLoad = false;
     });
 
     // Load rewards (sorted)
@@ -224,8 +229,13 @@
         });
     }
 
-    // Real-time listener for redemptions
+    // Real-time listener for redemptions (skip first load)
+    let redemptionsFirstLoad = true;
     onSnapshot(redemptionsColRef, (snapshot) => {
+        if (redemptionsFirstLoad) {
+            redemptionsFirstLoad = false;
+            return;
+        }
         snapshot.docChanges().forEach((change) => {
             if (change.type === "added") {
                 const data = change.doc.data();
