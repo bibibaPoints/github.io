@@ -49,11 +49,13 @@
 
     <!-- Firebase SDK -->
    <script type="module">
-    // Import Firebase modules from CDN
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, updateDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { 
+        getFirestore, doc, getDoc, updateDoc, 
+        collection, getDocs, addDoc, onSnapshot 
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Your Firebase Config
+    // Firebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyA1tsf2jHSpUfLb3PsFR58PJXDVhsGgHWA",
         authDomain: "bibibapoints.firebaseapp.com",
@@ -64,7 +66,7 @@
         measurementId: "G-BG3FKHX8BF"
     };
 
-    // Initialize Firebase
+    // Init Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
@@ -76,7 +78,21 @@
     let points = 0;
     let rewards = [];
 
-    // Load points
+    // 🔔 Ask notification permission
+    if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
+
+    function notify(title, body) {
+        if (Notification.permission === "granted") {
+            new Notification(title, {
+                body: body,
+                icon: "icon.png" // optional app icon
+            });
+        }
+    }
+
+    // Load points once
     async function loadPoints() {
         const pointsSnap = await getDoc(pointsDocRef);
         if (pointsSnap.exists()) {
@@ -85,7 +101,19 @@
         }
     }
 
-    // Load rewards (sorted by price ascending)
+    // Real-time listener for points changes
+    onSnapshot(pointsDocRef, (doc) => {
+        if (doc.exists()) {
+            const newPoints = doc.data().value;
+            if (newPoints !== points) {
+                points = newPoints;
+                document.getElementById('points').textContent = points.toLocaleString();
+                notify("Points Updated!", `You now have ${points} points.`);
+            }
+        }
+    });
+
+    // Load rewards (sorted)
     async function loadRewards() {
         const rewardsSnap = await getDocs(rewardsColRef);
         rewards = rewardsSnap.docs.map(d => {
@@ -97,23 +125,17 @@
                 cost: Number(data.cost ?? 0)
             };
         });
-
-        // sort by cost (lowest -> highest)
         rewards.sort((a, b) => a.cost - b.cost);
-
         renderRewards();
     }
 
-    // Render rewards safely and attach event listeners
     function renderRewards() {
         const rewardsGrid = document.getElementById('rewards');
         rewardsGrid.innerHTML = '';
-
         if (rewards.length === 0) {
             rewardsGrid.innerHTML = '<div class="no-rewards">No rewards available.</div>';
             return;
         }
-
         rewards.forEach(reward => {
             const card = document.createElement('div');
             card.className = 'reward-card';
@@ -145,7 +167,7 @@
         });
     }
 
-    // Redeem a reward
+    // Redeem reward
     window.redeem = async function(cost, reward) {
         const successMsg = document.getElementById('success');
         if (points >= cost) {
@@ -160,19 +182,18 @@
 
             document.getElementById('points').textContent = points.toLocaleString();
             successMsg.textContent = `You redeemed: ${reward}!`;
-            await loadRedemptions(); // reload history (sorted)
+            notify("Reward Redeemed!", `You redeemed ${reward} for ${cost} points.`);
+            await loadRedemptions();
         } else {
             successMsg.textContent = `Not enough points for ${reward}.`;
         }
     }
 
-    // Load redemption history, sort by date (newest first), and show +/- for cost
+    // Load redemption history
     async function loadRedemptions() {
         const redemptionsSnap = await getDocs(redemptionsColRef);
-        // convert to array with timestamp for sorting
         const items = redemptionsSnap.docs.map(d => {
             const data = d.data();
-            // try to parse date safely
             const ts = data.date ? new Date(data.date).getTime() : 0;
             return {
                 id: d.id,
@@ -182,26 +203,16 @@
                 ts: ts
             };
         });
-
-        // sort by timestamp descending (newest first)
         items.sort((a, b) => b.ts - a.ts);
 
-        // render table
         const tbody = document.querySelector('#redemptions-table tbody');
         tbody.innerHTML = '';
         items.forEach(item => {
             const tr = document.createElement('tr');
-
-            // cost display: if negative -> it's a points addition (show +); else show - (redemption)
             let sign = '-';
             let absVal = Math.abs(item.cost);
-            if (item.cost < 0) {
-                sign = '+';
-                absVal = Math.abs(item.cost);
-            }
-
+            if (item.cost < 0) { sign = '+'; }
             const costText = `${sign}${Number(absVal).toLocaleString()}`;
-
             const dateText = item.dateRaw ? new Date(item.dateRaw).toLocaleString() : '—';
 
             tr.innerHTML = `
@@ -213,7 +224,17 @@
         });
     }
 
-    // Initialize
+    // Real-time listener for redemptions
+    onSnapshot(redemptionsColRef, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+                const data = change.doc.data();
+                notify("New Redemption", `${data.reward} redeemed for ${data.cost} points.`);
+            }
+        });
+    });
+
+    // Init
     (async function init() {
         await loadPoints();
         await loadRewards();
