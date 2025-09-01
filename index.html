@@ -48,209 +48,186 @@
     </div>
 
     <!-- Firebase SDK -->
-   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { 
-        getFirestore, doc, getDoc, updateDoc, 
-        collection, getDocs, addDoc, onSnapshot 
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    <script type="module">
+        // Import Firebase modules from CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import {
+            getFirestore,
+            doc,
+            getDoc,
+            updateDoc,
+            collection,
+            getDocs,
+            addDoc
+        } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // Firebase Config
-    const firebaseConfig = {
-        apiKey: "AIzaSyA1tsf2jHSpUfLb3PsFR58PJXDVhsGgHWA",
-        authDomain: "bibibapoints.firebaseapp.com",
-        projectId: "bibibapoints",
-        storageBucket: "bibibapoints.firebasestorage.app",
-        messagingSenderId: "942015302901",
-        appId: "1:942015302901:web:f2118d13231e5bf98cc9bc",
-        measurementId: "G-BG3FKHX8BF"
-    };
+        // Your Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1tsf2jHSpUfLb3PsFR58PJXDVhsGgHWA",
+            authDomain: "bibibapoints.firebaseapp.com",
+            projectId: "bibibapoints",
+            storageBucket: "bibibapoints.firebasestorage.app",
+            messagingSenderId: "942015302901",
+            appId: "1:942015302901:web:f2118d13231e5bf98cc9bc",
+            measurementId: "G-BG3FKHX8BF"
+        };
 
-    // Init Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
 
-    // Firestore references
-    const pointsDocRef = doc(db, "settings", "points");
-    const rewardsColRef = collection(db, "rewards");
-    const redemptionsColRef = collection(db, "redemptions");
+        // Firestore references
+        const pointsDocRef = doc(db, "settings", "points");
+        const rewardsColRef = collection(db, "rewards");
+        const redemptionsColRef = collection(db, "redemptions");
 
-    let points = 0;
-    let rewards = [];
+        let points = 0;
+        let rewards = [];
 
-    // 🔔 Ask notification permission
-    if (Notification.permission !== "granted") {
-        Notification.requestPermission();
-    }
-
-    function notify(title, body) {
-        if (Notification.permission === "granted") {
-            new Notification(title, {
-                body: body,
-                icon: "icon.png" // optional app icon
-            });
-        }
-    }
-
-    // Load points once
-    async function loadPoints() {
-        const pointsSnap = await getDoc(pointsDocRef);
-        if (pointsSnap.exists()) {
-            points = pointsSnap.data().value;
-            document.getElementById('points').textContent = points.toLocaleString();
-        }
-    }
-
-    // Real-time listener for points changes (skip first load)
-    let pointsFirstLoad = true;
-    onSnapshot(pointsDocRef, (doc) => {
-        if (doc.exists()) {
-            const newPoints = doc.data().value;
-            if (newPoints !== points) {
-                points = newPoints;
+        // Load points
+        async function loadPoints() {
+            const pointsSnap = await getDoc(pointsDocRef);
+            if (pointsSnap.exists()) {
+                points = pointsSnap.data().value;
                 document.getElementById('points').textContent = points.toLocaleString();
-
-                if (!pointsFirstLoad) {
-                    notify("Points Updated!", `You now have ${points} points.`);
-                }
             }
         }
-        pointsFirstLoad = false;
-    });
 
-    // Load rewards (sorted)
-    async function loadRewards() {
-        const rewardsSnap = await getDocs(rewardsColRef);
-        rewards = rewardsSnap.docs.map(d => {
-            const data = d.data();
-            return {
-                id: d.id,
-                title: data.title ?? data.name ?? data.reward ?? '',
-                desc: data.desc ?? data.description ?? '',
-                cost: Number(data.cost ?? 0)
-            };
-        });
-        rewards.sort((a, b) => a.cost - b.cost);
-        renderRewards();
-    }
-
-    function renderRewards() {
-        const rewardsGrid = document.getElementById('rewards');
-        rewardsGrid.innerHTML = '';
-        if (rewards.length === 0) {
-            rewardsGrid.innerHTML = '<div class="no-rewards">No rewards available.</div>';
-            return;
-        }
-        rewards.forEach(reward => {
-            const card = document.createElement('div');
-            card.className = 'reward-card';
-
-            const title = document.createElement('div');
-            title.className = 'reward-title';
-            title.textContent = reward.title;
-
-            const desc = document.createElement('div');
-            desc.className = 'reward-desc';
-            desc.textContent = reward.desc;
-
-            const pointsDiv = document.createElement('div');
-            pointsDiv.className = 'reward-points';
-            pointsDiv.textContent = `Cost: ${Number(reward.cost).toLocaleString()} points`;
-
-            const btn = document.createElement('button');
-            btn.className = 'redeem-btn';
-            btn.type = 'button';
-            btn.textContent = 'Redeem';
-            btn.addEventListener('click', () => window.redeem(reward.cost, reward.title));
-
-            card.appendChild(title);
-            card.appendChild(desc);
-            card.appendChild(pointsDiv);
-            card.appendChild(btn);
-
-            rewardsGrid.appendChild(card);
-        });
-    }
-
-    // Redeem reward
-    window.redeem = async function(cost, reward) {
-        const successMsg = document.getElementById('success');
-        if (points >= cost) {
-            points -= cost;
-            await updateDoc(pointsDocRef, { value: points });
-
-            await addDoc(redemptionsColRef, {
-                reward: reward,
-                cost: cost,
-                date: new Date().toISOString()
+        // Load rewards (sorted by price ascending)
+        async function loadRewards() {
+            const rewardsSnap = await getDocs(rewardsColRef);
+            rewards = rewardsSnap.docs.map(d => {
+                const data = d.data();
+                return {
+                    id: d.id,
+                    title: data.title ?? data.name ?? data.reward ?? '',
+                    desc: data.desc ?? data.description ?? '',
+                    cost: Number(data.cost ?? 0)
+                };
             });
 
-            document.getElementById('points').textContent = points.toLocaleString();
-            successMsg.textContent = `You redeemed: ${reward}!`;
-            notify("Reward Redeemed!", `You redeemed ${reward} for ${cost} points.`);
-            await loadRedemptions();
-        } else {
-            successMsg.textContent = `Not enough points for ${reward}.`;
+            // Sort by cost (lowest -> highest)
+            rewards.sort((a, b) => a.cost - b.cost);
+            renderRewards();
         }
-    }
 
-    // Load redemption history
-    async function loadRedemptions() {
-        const redemptionsSnap = await getDocs(redemptionsColRef);
-        const items = redemptionsSnap.docs.map(d => {
-            const data = d.data();
-            const ts = data.date ? new Date(data.date).getTime() : 0;
-            return {
-                id: d.id,
-                reward: data.reward,
-                cost: Number(data.cost || 0),
-                dateRaw: data.date,
-                ts: ts
-            };
-        });
-        items.sort((a, b) => b.ts - a.ts);
+        // Render rewards safely and attach event listeners
+        function renderRewards() {
+            const rewardsGrid = document.getElementById('rewards');
+            rewardsGrid.innerHTML = '';
 
-        const tbody = document.querySelector('#redemptions-table tbody');
-        tbody.innerHTML = '';
-        items.forEach(item => {
-            const tr = document.createElement('tr');
-            let sign = '-';
-            let absVal = Math.abs(item.cost);
-            if (item.cost < 0) { sign = '+'; }
-            const costText = `${sign}${Number(absVal).toLocaleString()}`;
-            const dateText = item.dateRaw ? new Date(item.dateRaw).toLocaleString() : '—';
-
-            tr.innerHTML = `
-                <td>${item.reward ?? ''}</td>
-                <td style="text-align:right">${costText}</td>
-                <td>${dateText}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    // Real-time listener for redemptions (skip first load)
-    let redemptionsFirstLoad = true;
-    onSnapshot(redemptionsColRef, (snapshot) => {
-        if (redemptionsFirstLoad) {
-            redemptionsFirstLoad = false;
-            return;
-        }
-        snapshot.docChanges().forEach((change) => {
-            if (change.type === "added") {
-                const data = change.doc.data();
-                notify("New Redemption", `${data.reward} redeemed for ${data.cost} points.`);
+            if (rewards.length === 0) {
+                rewardsGrid.innerHTML = '<div class="no-rewards">No rewards available.</div>';
+                return;
             }
-        });
-    });
 
-    // Init
-    (async function init() {
-        await loadPoints();
-        await loadRewards();
-        await loadRedemptions();
-    })();
-</script>
+            rewards.forEach(reward => {
+                const card = document.createElement('div');
+                card.className = 'reward-card';
 
+                const title = document.createElement('div');
+                title.className = 'reward-title';
+                title.textContent = reward.title;
+
+                const desc = document.createElement('div');
+                desc.className = 'reward-desc';
+                desc.textContent = reward.desc;
+
+                const pointsDiv = document.createElement('div');
+                pointsDiv.className = 'reward-points';
+                pointsDiv.textContent = `Cost: ${Number(reward.cost).toLocaleString()} points`;
+
+                const btn = document.createElement('button');
+                btn.className = 'redeem-btn';
+                btn.type = 'button';
+                btn.textContent = 'Redeem';
+                btn.addEventListener('click', () => window.redeem(reward.cost, reward.title));
+
+                card.appendChild(title);
+                card.appendChild(desc);
+                card.appendChild(pointsDiv);
+                card.appendChild(btn);
+                rewardsGrid.appendChild(card);
+            });
+        }
+
+        // Redeem a reward
+        window.redeem = async function (cost, reward) {
+            const successMsg = document.getElementById('success');
+
+            if (points >= cost) {
+                points -= cost;
+                await updateDoc(pointsDocRef, { value: points });
+                await addDoc(redemptionsColRef, {
+                    reward: reward,
+                    cost: cost,
+                    date: new Date().toISOString()
+                });
+
+                document.getElementById('points').textContent = points.toLocaleString();
+                successMsg.textContent = `You redeemed: ${reward}!`;
+
+                await loadRedemptions(); // Reload history (sorted)
+            } else {
+                successMsg.textContent = `Not enough points for ${reward}.`;
+            }
+        };
+
+        // Load redemption history, sort by date (newest first), and show +/- for cost
+        async function loadRedemptions() {
+            const redemptionsSnap = await getDocs(redemptionsColRef);
+
+            // Convert to array with timestamp for sorting
+            const items = redemptionsSnap.docs.map(d => {
+                const data = d.data();
+                const ts = data.date ? new Date(data.date).getTime() : 0;
+                return {
+                    id: d.id,
+                    reward: data.reward,
+                    cost: Number(data.cost || 0),
+                    dateRaw: data.date,
+                    ts: ts
+                };
+            });
+
+            // Sort by timestamp descending (newest first)
+            items.sort((a, b) => b.ts - a.ts);
+
+            // Render table
+            const tbody = document.querySelector('#redemptions-table tbody');
+            tbody.innerHTML = '';
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+
+                // Cost display: if negative -> it's a points addition (show +); else show -
+                let sign = '-';
+                let absVal = Math.abs(item.cost);
+
+                if (item.cost < 0) {
+                    sign = '+';
+                    absVal = Math.abs(item.cost);
+                }
+
+                const costText = `${sign}${Number(absVal).toLocaleString()}`;
+                const dateText = item.dateRaw ? new Date(item.dateRaw).toLocaleString() : '—';
+
+                tr.innerHTML = `
+                    <td>${item.reward ?? ''}</td>
+                    <td style="text-align:right">${costText}</td>
+                    <td>${dateText}</td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Initialize
+        (async function init() {
+            await loadPoints();
+            await loadRewards();
+            await loadRedemptions();
+        })();
+    </script>
 </body>
 </html>
